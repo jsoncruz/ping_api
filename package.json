@@ -1,0 +1,42 @@
+{
+  "name": "server",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node ace build",
+    "start": "node ace serve --watch",
+    "lint": "eslint . --ext=.ts"
+  },
+  "devDependencies": {
+    "@adonisjs/assembler": "^2.0.0",
+    "@types/nodemailer": "^6.4.0",
+    "@types/ping": "^0.2.0",
+    "@types/proxy-addr": "^2.0.0",
+    "@types/source-map-support": "^0.5.1",
+    "adonis-preset-ts": "^1.0.4",
+    "eslint": "^7.3.1",
+    "eslint-plugin-adonis": "^1.0.13",
+    "eslint-plugin-import-helpers": "^1.0.2",
+    "pino-pretty": "^4.0.0",
+    "typescript": "^3.9.5",
+    "youch": "^2.0.10",
+    "youch-terminal": "^1.0.0"
+  },
+  "dependencies": {
+    "@adonisjs/ace": "^6.0.0",
+    "@adonisjs/core": "^5.0.0-preview-rc",
+    "@adonisjs/fold": "^6.0.0",
+    "@adonisjs/lucid": "^8.2.2",
+    "axios": "^0.19.2",
+    "cli-table3": "^0.6.0",
+    "is-ip": "^3.1.0",
+    "is-reachable": "^4.0.0",
+    "net-snmp": "^2.6.7",
+    "nodemailer": "^6.4.10",
+    "ping": "^0.2.3",
+    "proxy-addr": "^2.0.6",
+    "reflect-metadata": "^0.1.13",
+    "source-map-support": "^0.5.19",
+    "sqlite3": "^4.2.0"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "extends": [
+    "plugin:adonis/typescriptApp"
+  ],
+  "plugins": [
+    "eslint-plugin-import-helpers"
+  ],
+  "rules": {
+    "max-len": ["error", { "code": 130 }],
+    "import-helpers/order-imports": [
+      "warn",
+      {
+        "newlinesBetween": "always",
+        "groups": ["/^@adonisjs/", "/^@ioc/", "module", "/^App/", "/^Contracts/", ["parent", "sibling", "index"]],
+        "alphabetize": { "order": "asc", "ignoreCase": false }
+      }
+    ]
+  }
+}
