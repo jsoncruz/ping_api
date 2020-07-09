@@ -14,8 +14,7 @@
   },
   "preloads": [
     "./start/routes",
-    "./start/kernel",
-    "./start/events"
+    "./start/kernel"
   ],
   "providers": [
     "./providers/AppProvider",

@@ -12,9 +12,6 @@
     "rootDir": "./",
     "sourceMap": true,
     "paths": {
-      "@/*": [
-        "./*"
-      ],
       "App/*": [
         "./app/*"
       ],

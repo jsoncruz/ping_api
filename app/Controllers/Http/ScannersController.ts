@@ -46,19 +46,17 @@ export default class ScannersController {
   public intervals: Array<NodeJS.Timeout> = []
   protected servers: Array<RequestProps>
   private onAir: Array<InMemoryCached>
-  private REST: ApisController
-  private teste = 0
+  private restful: ApisController
 
   constructor (protected webservice: ServicesProps) {
-    // console.clear()
-    this.REST = new ApisController()
+    this.restful = new ApisController()
   }
 
   public async boot (onStart = true): Promise<void> {
     if (onStart) {
       logger.start('Iniciando Ping API')
     }
-    await this.REST.fetch(this.webservice.request)
+    await this.restful.fetch(this.webservice.request)
       .then((data) => {
         try {
           if (!Array.isArray(data)) {
@@ -96,18 +94,18 @@ export default class ScannersController {
     }
   }
 
-  public async reboot () {
-    logger.update('Reiniciando Ping API')
-    await this.stop(false)
-    await this.boot(false)
-    await this.ignitor()
-  }
-
-  public async stop (onStart = true) {
+  public stop (onStart = true) {
     if (onStart) {
-      logger.stop('Parando Ping API')
+      logger.stop('Ping API desligada')
     }
     this.intervals.forEach((interval) => clearInterval(interval))
+  }
+
+  public async reboot () {
+    logger.update('Reiniciando Ping API')
+    this.stop(false)
+    await this.boot(false)
+    await this.ignitor()
   }
 
   private async inspector (host: string, port: number): Promise<ReusableProps> {
@@ -148,7 +146,6 @@ export default class ScannersController {
   private async assistant (id: number, { alive }: ReusableProps, onAir: InMemoryCached, interval: NodeJS.Timeout) {
     await new Promise((resolve, reject) => {
       try {
-        console.log(this.teste++)
         const client = http2.connect('https://www.google.com/')
         client.on('connect', async () => {
           if (alive) {
@@ -158,7 +155,7 @@ export default class ScannersController {
             }
           } else {
             if (onAir.current >= onAir.maximum) {
-              await this.REST.support(this.webservice.ticket, id)
+              await this.restful.support(this.webservice.ticket, id)
               logger.success(`Foi aberto um chamado para o serviço #${id}`)
               this.servers.splice(this.servers.findIndex(({ Id }) => Id === id), 1)
               this.onAir.splice(this.onAir.findIndex(({ id: Id }) => Id === id), 1)
@@ -172,9 +169,8 @@ export default class ScannersController {
           resolve(id)
         })
         client.on('error', () => {
-          const msg = 'Ping API não está conectada à internet'
           client.destroy()
-          reject(msg)
+          reject('Ping API não está conectada à internet')
         })
       } catch (exception) {
         reject(exception)
