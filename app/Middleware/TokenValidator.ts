@@ -1,5 +1,5 @@
-import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
 import Env from '@ioc:Adonis/Core/Env'
+import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
 
 export default class TokenValidator {
   public async handle ({ request, response }: HttpContextContract, next: () => Promise<void>) {
