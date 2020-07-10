@@ -44,8 +44,11 @@ export default class ScannersController {
     this.restful = new ApisController()
   }
 
-  public setup ({ request, ticket }: ServicesProps) {
-    this.webservice = { request, ticket }
+  public setup (dns: string) {
+    this.webservice = {
+      request: `${dns}/webrunstudio/wsConsEquMonExt.rule?sys=SDK`,
+      ticket: `${dns}/webrunstudio/wsMonExt.rule?sys=SDK`,
+    }
   }
 
   public async ignitor (): Promise<void> {
@@ -77,6 +80,7 @@ export default class ScannersController {
       server.forEach(({ id, ip, port, duration }) => {
         const interval = setInterval(async () => {
           const inspected = await this.inspector(ip as string, port as number)
+          console.log(inspected)
           const onMemo = this.onAir.find(({ id: key }) => key === id) as InMemoryCached
           await this.assistant(id, inspected, onMemo, interval)
         }, duration)
@@ -199,6 +203,15 @@ export default class ScannersController {
       }
     } else {
       return { message: 'O serviço não pode ser reiniciado, porque ainda não foi iniciado', commit: 0 }
+    }
+  }
+
+  public fetchAirData (dataType: 'air' | 'original') {
+    switch (dataType) {
+      case 'air':
+        return JSON.stringify(this.onAir)
+      case 'original':
+        return JSON.stringify(this.servers)
     }
   }
 }

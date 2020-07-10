@@ -26,6 +26,11 @@ Route.get('/', async () => {
   return { message: 'API em execução' }
 })
 
-Route.post('/server', async ({ request, response }: HttpContextContract) => {
-  await Event.emit('server:manager', { ...request.only(['action', 'dns']), response })
-}).middleware('Authentication')
+Route.group(() => {
+  Route.post('/', async ({ request, response }: HttpContextContract) => {
+    await Event.emit('server:manager', { ...request.only(['action', 'dns']), response })
+  }).middleware('Authentication')
+  Route.get('/:type', async ({ params: { type }, response }: HttpContextContract) => {
+    await Event.emit('server:manager', { action: type, response })
+  })
+}).prefix('server')
