@@ -1,3 +1,4 @@
+import { ResponseContract } from '@ioc:Adonis/Core/Response'
 /**
  * Contract source: https://git.io/JfefG
  *
@@ -29,6 +30,7 @@ declare module '@ioc:Adonis/Core/Event' {
     'server:manager': {
       action: 'start' | 'stop' | 'restart',
       dns?: string,
+      response: ResponseContract
     }
   }
 }

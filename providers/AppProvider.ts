@@ -24,23 +24,35 @@ export default class AppProvider {
 
   public async ready () {
     const { default: event } = await import('@ioc:Adonis/Core/Event')
-    event.on('server:manager', async ({ action, dns = 'http://177.21.14.214:880/' }: EventsList['server:manager']) => {
+    event.on('server:manager', async (props: EventsList['server:manager']) => {
+      const { action, dns, response } = props
       try {
         switch (action) {
           case 'start':
-            this.$singleton.setup({
-              request: `${dns}/webrunstudio/wsConsEquMonExt.rule?sys=SDK`,
-              ticket: `${dns}/webrunstudio/wsMonExt.rule?sys=SDK`,
-            })
-            await this.$singleton.boot()
-            await this.$singleton.ignitor()
+            if (dns) {
+              this.$singleton.setup({
+                request: `${dns}/webrunstudio/wsConsEquMonExt.rule?sys=SDK`,
+                ticket: `${dns}/webrunstudio/wsMonExt.rule?sys=SDK`,
+              })
+              const boot = await this.$singleton.boot()
+              if (boot.commit === 1) {
+                await this.$singleton.ignitor()
+              }
+              response.json({ ...boot })
+            } else {
+              response.json({ message: 'Parametro DNS está pendente no corpo da requisição enviada' })
+            }
             break
           case 'stop':
-            this.$singleton.stop()
+            const stop = this.$singleton.stop()
+            response.json({ ...stop })
             break
           case 'restart':
-            await this.$singleton.reboot()
+            const reboot = await this.$singleton.reboot()
+            response.json({ ...reboot })
             break
+          default:
+            response.json({ message: `Comando '${action}' não existe` })
         }
       } catch (exception) {
         logger.fatal(exception)

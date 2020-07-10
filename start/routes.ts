@@ -26,6 +26,6 @@ Route.get('/', async () => {
   return { message: 'API em execução' }
 })
 
-Route.post('/server', async ({ request }: HttpContextContract) => {
-  await Event.emit('server:manager', request.only(['action', 'dns']))
+Route.post('/server', async ({ request, response }: HttpContextContract) => {
+  await Event.emit('server:manager', { ...request.only(['action', 'dns']), response })
 }).middleware('Authentication')

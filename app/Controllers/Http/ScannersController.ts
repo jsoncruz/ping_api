@@ -27,10 +27,16 @@ interface ServicesProps {
   ticket: string;
 }
 
+interface ResponseMessage {
+  message: string;
+  commit: 0 | 1
+}
+
 export default class ScannersController {
-  protected webservice: ServicesProps
+  public status: 'start' | 'stop' = 'stop'
   public intervals: Array<NodeJS.Timeout> = []
   protected servers: Array<RequestProps>
+  protected webservice: ServicesProps
   private onAir: Array<InMemoryCached>
   private restful: ApisController
 
@@ -71,7 +77,6 @@ export default class ScannersController {
       server.forEach(({ id, ip, port, duration }) => {
         const interval = setInterval(async () => {
           const inspected = await this.inspector(ip as string, port as number)
-          console.log(inspected)
           const onMemo = this.onAir.find(({ id: key }) => key === id) as InMemoryCached
           await this.assistant(id, inspected, onMemo, interval)
         }, duration)
@@ -109,10 +114,11 @@ export default class ScannersController {
     })
   }
 
-  private async assistant (id: number, { alive }: ReusableProps, onAir: InMemoryCached, interval: NodeJS.Timeout) {
+  private async assistant (id: number, { alive }: ReusableProps, onAir: InMemoryCached, interval: NodeJS.Timeout): Promise<void> {
     await new Promise((resolve, reject) => {
       try {
         const client = http2.connect('https://www.google.com/')
+        client.setTimeout(1000)
         client.on('connect', async () => {
           if (alive) {
             if (onAir.current > 0) {
@@ -144,33 +150,55 @@ export default class ScannersController {
     })
   }
 
-  public async boot (onStart = true): Promise<void> {
-    if (onStart) {
-      logger.start('Iniciando Ping API')
-    }
-    try {
-      const data = await this.restful.fetch(this.webservice.request)
-      if (!Array.isArray(data)) {
-        throw new Error('Lista de servidores está vazia')
+  public async boot (onStart = true): Promise<ResponseMessage> {
+    if (this.status === 'stop') {
+      if (onStart) {
+        logger.start('Iniciando Ping API')
       }
-      logger.success('API inicializada em modo de segundo plano')
-      this.servers = data.filter(({ Ativo }) => Ativo === 'S')
-    } catch (exception) {
-      logger.error(exception)
+      try {
+        const data = await this.restful.fetch(this.webservice.request)
+        if (!Array.isArray(data)) {
+          return { message: 'O webservice retornou uma lista vazia de servidores', commit: 0 }
+        }
+        logger.success('API inicializada em modo de segundo plano')
+        this.servers = data.filter(({ Ativo }) => Ativo === 'S')
+        this.status = 'start'
+        return { message: 'O serviço foi inicializado', commit: 1 }
+      } catch (exception) {
+        logger.error(exception)
+        return { message: exception, commit: 0 }
+      }
+    } else {
+      return { message: 'O serviço está em funcionamento', commit: 0 }
     }
   }
 
-  public stop (onStart = true) {
-    if (onStart) {
-      logger.stop('Ping API desligada')
+  public stop (onStart = true): ResponseMessage {
+    if (this.status === 'start') {
+      if (onStart) {
+        logger.stop('Ping API desligada')
+      }
+      this.intervals.forEach((interval) => clearInterval(interval))
+      this.status = 'stop'
+      return { message: 'O serviço foi paralisado', commit: 1 }
+    } else {
+      return { message: 'O serviço está paralisado', commit: 0 }
     }
-    this.intervals.forEach((interval) => clearInterval(interval))
   }
 
-  public async reboot () {
-    logger.update('Reiniciando Ping API')
-    this.stop(false)
-    await this.boot(false)
-    await this.ignitor()
+  public async reboot (): Promise<ResponseMessage> {
+    if (this.status === 'start') {
+      logger.update('Reiniciando Ping API')
+      const { commit } = this.stop(false)
+      if (commit === 1) {
+        await this.boot(false)
+        await this.ignitor()
+        return { message: 'O serviço foi reinicializado', commit: 1 }
+      } else {
+        return { message: 'O serviço não pôde ser reiniciado', commit: 0 }
+      }
+    } else {
+      return { message: 'O serviço não pode ser reiniciado, porque ainda não foi iniciado', commit: 0 }
+    }
   }
 }
