@@ -1,33 +1,18 @@
 import { logger } from '@adonisjs/ace'
 
 import http2 from 'http2'
-import isIp from 'is-ip'
-import isReachable from 'is-reachable'
-import ping from 'ping'
+import net from 'net'
 
-import ApisController from 'App/Controllers/Http/ApisController'
+import ApisController, { RequestProps } from 'App/Controllers/Http/ApisController'
 
-export interface RequestProps {
-  Id: number;
-  IpExt: string;
-  PortaExt: number;
-  IpInt: string;
-  PortaInt: number;
-  Tipo: number;
-  Ativo: string;
-  Localizacao: string;
-  Intervalo: number;
-  Qtd: number
-}
-
-export interface ReusableProps {
+interface ReusableProps {
   id: number;
-  ip: string;
-  port: number;
-  alive: boolean;
+  ip: string | undefined;
+  port: number | undefined;
+  alive: boolean | unknown;
+  latency: string | unknown;
   maximum: number;
   duration: number;
-  latency: string | unknown;
   enabled: boolean;
 }
 
@@ -43,32 +28,18 @@ interface ServicesProps {
 }
 
 export default class ScannersController {
+  protected webservice: ServicesProps
   public intervals: Array<NodeJS.Timeout> = []
   protected servers: Array<RequestProps>
   private onAir: Array<InMemoryCached>
   private restful: ApisController
 
-  constructor (protected webservice: ServicesProps) {
+  constructor () {
     this.restful = new ApisController()
   }
 
-  public async boot (onStart = true): Promise<void> {
-    if (onStart) {
-      logger.start('Iniciando Ping API')
-    }
-    await this.restful.fetch(this.webservice.request)
-      .then((data) => {
-        try {
-          if (!Array.isArray(data)) {
-            throw new Error('Lista de servidores está vazia')
-          }
-          logger.success('API inicializada em modo de segundo plano')
-          this.servers = data.filter(({ Ativo }) => Ativo === 'S')
-        } catch (exception) {
-          logger.fatal(exception)
-        }
-      })
-      .catch((exception) => logger.error(exception))
+  public setup ({ request, ticket }: ServicesProps) {
+    this.webservice = { request, ticket }
   }
 
   public async ignitor (): Promise<void> {
@@ -81,10 +52,10 @@ export default class ScannersController {
         PortaExt: port = 80,
         Intervalo: duration,
         Qtd: maximum,
-        ...rest
+        Ativo: enabled,
       } of this.servers) {
-        const inspectorResponse = await this.inspector(host, port)
-        response.push({ ...inspectorResponse, id, maximum, duration, enabled: rest.Ativo === 'S' })
+        const tester = await this.inspector(host, port)
+        response.push({ ...tester, id, maximum, duration, enabled: enabled === 'S' })
       }
       this.onAir = response.map(({ id, maximum }) => ({ id, current: 0, maximum }))
       logger.create('Dados do(s) servidor(es) estão na memória')
@@ -94,53 +65,48 @@ export default class ScannersController {
     }
   }
 
-  public stop (onStart = true) {
-    if (onStart) {
-      logger.stop('Ping API desligada')
+  private persistent (server: Array<ReusableProps>): void {
+    logger.watch('Teste persistente de serviços')
+    try {
+      server.forEach(({ id, ip, port, duration }) => {
+        const interval = setInterval(async () => {
+          const inspected = await this.inspector(ip as string, port as number)
+          console.log(inspected)
+          const onMemo = this.onAir.find(({ id: key }) => key === id) as InMemoryCached
+          await this.assistant(id, inspected, onMemo, interval)
+        }, duration)
+        this.intervals.push(interval)
+      })
+    } catch (exception) {
+      logger.error(exception)
     }
-    this.intervals.forEach((interval) => clearInterval(interval))
-  }
-
-  public async reboot () {
-    logger.update('Reiniciando Ping API')
-    this.stop(false)
-    await this.boot(false)
-    await this.ignitor()
+    logger.info('Ping API está em andamento!')
   }
 
   private async inspector (host: string, port: number): Promise<ReusableProps> {
-    try {
-      if (isIp(host)) {
-        host.replace(/[http|https||:|\/]*/, '')
-      } else if (/:\/\//.test(host) === false) {
-      }
-      // const client = http2.connect(`http://${host}`)
-      // const alive = client.socket.connect({ host, port })
-      const { avg: latency, host: ip } = await ping.promise.probe(host, { timeout: 2 })
-      const factoryInspected: ReusableProps = { ip, port, latency } as ReusableProps
-      factoryInspected.alive = await isReachable(`${host}:${port}`, { timeout: 3000 })
-      factoryInspected.alive = true
-      return factoryInspected
-    } catch (exception) {
-      throw new Error(exception)
-    }
-  }
-
-  private persistent (server: Array<ReusableProps>): void {
-    logger.watch('Teste persistente de serviços')
-    server.forEach(({ id, ip, port, duration }) => {
-      const interval = setInterval(async () => {
-        const inspected = await this.inspector(ip, port)
-        const onMemo = this.onAir.find(({ id: key }) => key === id) as InMemoryCached
-        try {
-          await this.assistant(id, inspected, onMemo, interval)
-        } catch (exception) {
-          logger.error(exception)
-        }
-      }, duration)
-      this.intervals.push(interval)
+    return new Promise((resolve, reject) => {
+      const timing = process.hrtime()
+      const socket = new net.Socket().setTimeout(3000)
+      const client = socket.connect({ host, port })
+      const usable = {
+        ip: undefined,
+        alive: false,
+        latency: 'unknown',
+        port,
+      } as ReusableProps
+      socket.on('connect', () => {
+        const diff = process.hrtime(timing)
+        usable.ip = client.remoteAddress
+        usable.latency = (diff[1] / 1000000).toFixed(2).concat('ms')
+        usable.alive = true
+        socket.end()
+      })
+      socket.on('error', ({ message: exception }) => reject(exception))
+      socket.on('end', () => {
+        resolve(usable)
+        socket.destroy()
+      })
     })
-    logger.info('Ping API está em andamento!')
   }
 
   private async assistant (id: number, { alive }: ReusableProps, onAir: InMemoryCached, interval: NodeJS.Timeout) {
@@ -176,5 +142,35 @@ export default class ScannersController {
         reject(exception)
       }
     })
+  }
+
+  public async boot (onStart = true): Promise<void> {
+    if (onStart) {
+      logger.start('Iniciando Ping API')
+    }
+    try {
+      const data = await this.restful.fetch(this.webservice.request)
+      if (!Array.isArray(data)) {
+        throw new Error('Lista de servidores está vazia')
+      }
+      logger.success('API inicializada em modo de segundo plano')
+      this.servers = data.filter(({ Ativo }) => Ativo === 'S')
+    } catch (exception) {
+      logger.error(exception)
+    }
+  }
+
+  public stop (onStart = true) {
+    if (onStart) {
+      logger.stop('Ping API desligada')
+    }
+    this.intervals.forEach((interval) => clearInterval(interval))
+  }
+
+  public async reboot () {
+    logger.update('Reiniciando Ping API')
+    this.stop(false)
+    await this.boot(false)
+    await this.ignitor()
   }
 }

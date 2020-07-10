@@ -3,7 +3,18 @@ import { logger } from '@adonisjs/ace'
 import axios from 'axios'
 import CliTable3 from 'cli-table3'
 
-import { RequestProps } from 'App/Controllers/Http/ScannersController'
+export interface RequestProps {
+  Id: number;
+  IpExt: string;
+  PortaExt: number;
+  IpInt: string;
+  PortaInt: number;
+  Tipo: number;
+  Ativo: string;
+  Localizacao: string;
+  Intervalo: number;
+  Qtd: number
+}
 
 export default class ApisController {
   public fetch (webservice: string): Promise<RequestProps[]> {

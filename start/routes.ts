@@ -27,6 +27,5 @@ Route.get('/', async () => {
 })
 
 Route.post('/server', async ({ request }: HttpContextContract) => {
-  Event.emit('server:manager', request.only(['action']))
-  return { message: 'Ação disparada com sucesso' }
-}).middleware('token')
+  await Event.emit('server:manager', request.only(['action', 'dns']))
+}).middleware('Authentication')
