@@ -80,7 +80,6 @@ export default class ScannersController {
       server.forEach(({ id, ip, port, duration }) => {
         const interval = setInterval(async () => {
           const inspected = await this.inspector(ip as string, port as number)
-          console.log(inspected)
           const onMemo = this.onAir.find(({ id: key }) => key === id) as InMemoryCached
           await this.assistant(id, inspected, onMemo, interval)
         }, duration)
