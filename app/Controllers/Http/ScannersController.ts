@@ -32,6 +32,8 @@ interface ResponseMessage {
   commit: 0 | 1
 }
 
+type FetchProps = 'status' | 'air' | 'original'
+
 export default class ScannersController {
   public status: 'start' | 'stop' = 'stop'
   public intervals: Array<NodeJS.Timeout> = []
@@ -92,10 +94,9 @@ export default class ScannersController {
   }
 
   private async inspector (host: string, port: number): Promise<ReusableProps> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const timing = process.hrtime()
-      const socket = new net.Socket().setTimeout(3000)
-      const client = socket.connect({ host, port })
+      const socket = new net.Socket().connect({ host, port }).setTimeout(3000)
       const usable = {
         ip: undefined,
         alive: false,
@@ -104,15 +105,16 @@ export default class ScannersController {
       } as ReusableProps
       socket.on('connect', () => {
         const diff = process.hrtime(timing)
-        usable.ip = client.remoteAddress
-        usable.latency = (diff[1] / 1000000).toFixed(2).concat('ms')
+        usable.ip = socket.remoteAddress
+        usable.latency = (diff[1] / 1000000).toFixed(2).concat(' ms')
         usable.alive = true
-        socket.end()
+        socket.emit('end')
       })
-      socket.on('error', ({ message: exception }) => reject(exception))
+      socket.on('timeout', () => socket.emit('end'))
+      socket.on('error', () => socket.emit('end'))
       socket.on('end', () => {
-        resolve(usable)
         socket.destroy()
+        resolve(usable)
       })
     })
   }
@@ -138,7 +140,7 @@ export default class ScannersController {
               clearInterval(interval)
             } else {
               onAir.current++
-              logger.error(`Serviço #${id} está offline`)
+              logger.error(`Serviço #${id} está offline com ${onAir.current}/${onAir.maximum}`)
             }
           }
           resolve(id)
@@ -205,8 +207,10 @@ export default class ScannersController {
     }
   }
 
-  public fetchAirData (dataType: 'air' | 'original') {
+  public fetchAirData (dataType: FetchProps) {
     switch (dataType) {
+      case 'status':
+        return this.status
       case 'air':
         return JSON.stringify(this.onAir)
       case 'original':
