@@ -2800,11 +2800,6 @@ net-snmp@^2.6.7:
     asn1-ber "*"
     smart-buffer "^4.1.0"
 
-network-speed@^2.0.7:
-  version "2.0.7"
-  resolved "https://registry.yarnpkg.com/network-speed/-/network-speed-2.0.7.tgz#9f75096d4e70d7a2f34bff0262dc3d40c3b50262"
-  integrity sha512-v55isi03DkXKJuyIue7gwguq7289wgr5ZmLoAOsOmW6BSPSkrMXwcxNUSSS3z6TL1TE+bibJPg284JmjW2cQqQ==
-
 node-addon-api@^2.0.0:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/node-addon-api/-/node-addon-api-2.0.1.tgz#4fd0931bf6d7e48b219ff3e6abc73cbb0252b7a3"

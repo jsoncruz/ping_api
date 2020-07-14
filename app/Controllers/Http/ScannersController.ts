@@ -3,7 +3,6 @@ import { logger } from '@adonisjs/ace'
 import http2 from 'http2'
 import humanizeDuration from 'humanize-duration'
 import net from 'net'
-import NetworkSpeed from 'network-speed'
 import { cpu, mem, drive } from 'node-os-utils'
 
 import ApisController, { RequestProps } from 'App/Controllers/Http/ApisController'
@@ -211,7 +210,6 @@ export default class ScannersController {
   }
 
   public async memoryData (dataType: FetchProps) {
-    const speed = new NetworkSpeed()
     switch (dataType) {
       case 'status':
         return JSON.stringify({ status: this.status })
@@ -231,24 +229,6 @@ export default class ScannersController {
                 const { totalGb, freeGb, usedPercentage } = await drive.info('/')
                 return { total: `${totalGb}gb`, free: `${freeGb}gb`, usage: `${usedPercentage}%` }
               })(),
-              internet: {
-                download: await (async (bytes = 20000000) => {
-                  const { mbps } = await speed.checkDownloadSpeed(`http://eu.httpbin.org/stream-bytes/${bytes}`, bytes)
-                  return `${mbps}mb`
-                })(),
-                upload: await (async (bytes = 20000000) => {
-                  const { mbps } = await speed.checkUploadSpeed({
-                    hostname: 'www.google.com',
-                    port: 80,
-                    path: '/catchers/544b09b4599c1d0200000289',
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                  }, bytes)
-                  return `${mbps}mb`
-                })(),
-              },
             }
           } catch (exception) {
             return exception
