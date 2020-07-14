@@ -207,10 +207,10 @@ export default class ScannersController {
     }
   }
 
-  public fetchAirData (dataType: FetchProps) {
+  public memoryData (dataType: FetchProps) {
     switch (dataType) {
       case 'status':
-        return this.status
+        return JSON.stringify({ status: this.status })
       case 'air':
         return JSON.stringify(this.onAir)
       case 'original':

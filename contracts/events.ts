@@ -28,7 +28,7 @@ declare module '@ioc:Adonis/Core/Event' {
   */
   interface EventsList {
     'server:manager': {
-      action: 'start' | 'stop' | 'restart' | 'air' | 'original',
+      action: 'start' | 'stop' | 'restart' | 'status' | 'air' | 'original',
       response: ResponseContract
       dns?: string,
     }

@@ -48,9 +48,10 @@ export default class AppProvider {
             const reboot = await this.$singleton.reboot()
             response.json({ ...reboot })
             break
+          case 'status':
           case 'air':
           case 'original':
-            const incoming = this.$singleton.fetchAirData(action)
+            const incoming = this.$singleton.memoryData(action)
             if (incoming) {
               response.json({ ...JSON.parse(incoming) })
             } else {
