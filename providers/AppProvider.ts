@@ -48,12 +48,13 @@ export default class AppProvider {
             const reboot = await this.$singleton.reboot()
             response.json({ ...reboot })
             break
-          case 'status':
           case 'air':
+          case 'usage':
+          case 'status':
           case 'original':
             const incoming = this.$singleton.memoryData(action)
             if (incoming) {
-              response.json({ ...JSON.parse(incoming) })
+              response.json({ ...JSON.parse(await incoming) })
             } else {
               response.json({ message: 'O serviço não possui dados na memória até o momento' })
             }

@@ -2,6 +2,7 @@ import { logger } from '@adonisjs/ace'
 
 import http2 from 'http2'
 import net from 'net'
+import { cpu, mem, drive } from 'node-os-utils'
 
 import ApisController, { RequestProps } from 'App/Controllers/Http/ApisController'
 
@@ -32,7 +33,7 @@ interface ResponseMessage {
   commit: 0 | 1
 }
 
-type FetchProps = 'status' | 'air' | 'original'
+type FetchProps = 'status' | 'air' | 'original' | 'usage'
 
 export default class ScannersController {
   public status: 'start' | 'stop' = 'stop'
@@ -207,7 +208,7 @@ export default class ScannersController {
     }
   }
 
-  public memoryData (dataType: FetchProps) {
+  public async memoryData (dataType: FetchProps) {
     switch (dataType) {
       case 'status':
         return JSON.stringify({ status: this.status })
@@ -215,6 +216,33 @@ export default class ScannersController {
         return JSON.stringify(this.onAir)
       case 'original':
         return JSON.stringify(this.servers)
+      case 'usage':
+        const append = await (async () => {
+          try {
+            return {
+              memory: await (async () => {
+                const { totalMemMb, freeMemMb, usedMemMb } = await mem.info()
+                return { total: `${totalMemMb}mb`, free: `${freeMemMb}mb`, usage: `${usedMemMb}mb` }
+              })(),
+              disk: await (async () => {
+                const { totalGb, freeGb, usedPercentage } = await drive.info('/')
+                return { total: `${totalGb}gb`, free: `${freeGb}gb`, usage: `${usedPercentage}%` }
+              })(),
+            }
+          } catch (exception) {
+            return exception
+          }
+        })()
+        // console.log(drive)
+        return JSON.stringify({
+          cpu: {
+            model: cpu.model(),
+            cores: cpu.count(),
+            usage: `${await cpu.usage()}%`,
+          },
+          ...append,
+          uptime: process.uptime().toFixed(1).concat('h'),
+        })
     }
   }
 }
