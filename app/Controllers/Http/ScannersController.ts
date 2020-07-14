@@ -232,11 +232,11 @@ export default class ScannersController {
                 return { total: `${totalGb}gb`, free: `${freeGb}gb`, usage: `${usedPercentage}%` }
               })(),
               internet: {
-                download: await (async (bytes = 50000000) => {
+                download: await (async (bytes = 15000000) => {
                   const { mbps } = await speed.checkDownloadSpeed(`http://eu.httpbin.org/stream-bytes/${bytes}`, bytes)
                   return `${mbps}mb`
                 })(),
-                upload: await (async (bytes = 50000000) => {
+                upload: await (async (bytes = 15000000) => {
                   const { mbps } = await speed.checkUploadSpeed({
                     hostname: 'www.google.com',
                     port: 80,
