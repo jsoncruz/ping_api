@@ -1,11 +1,11 @@
 import { logger } from '@adonisjs/ace'
 
 import http2 from 'http2'
-import humanizeDuration from 'humanize-duration'
+import isUp from 'is-up'
 import net from 'net'
-import { cpu, mem, drive } from 'node-os-utils'
 
 import ApisController, { RequestProps } from 'App/Controllers/Http/ApisController'
+import MemoriesController, { MemoryRetriever, InMemoryCached, StatusProps } from 'App/Controllers/Http/MemoriesController'
 
 interface ReusableProps {
   id: number;
@@ -16,12 +16,7 @@ interface ReusableProps {
   maximum: number;
   duration: number;
   enabled: boolean;
-}
-
-interface InMemoryCached {
-  id: number;
-  current: number;
-  maximum: number;
+  type: number;
 }
 
 interface ServicesProps {
@@ -34,10 +29,8 @@ interface ResponseMessage {
   commit: 0 | 1
 }
 
-type FetchProps = 'status' | 'air' | 'original' | 'usage'
-
 export default class ScannersController {
-  public status: 'start' | 'stop' = 'stop'
+  public status: StatusProps = 'stop'
   public intervals: Array<NodeJS.Timeout> = []
   protected servers: Array<RequestProps>
   protected webservice: ServicesProps
@@ -66,9 +59,10 @@ export default class ScannersController {
         Intervalo: duration,
         Qtd: maximum,
         Ativo: enabled,
+        Tipo: type,
       } of this.servers) {
-        const tester = await this.inspector(host, port)
-        response.push({ ...tester, id, maximum, duration, enabled: enabled === 'S' })
+        const tester = await this.inspector(host, port, type)
+        response.push({ ...tester, id, maximum, duration, enabled: enabled === 'S', type })
       }
       this.onAir = response.map(({ id, maximum }) => ({ id, current: 0, maximum }))
       logger.create('Dados do(s) servidor(es) estão na memória')
@@ -81,9 +75,9 @@ export default class ScannersController {
   private persistent (server: Array<ReusableProps>): void {
     logger.watch('Teste persistente de serviços')
     try {
-      server.forEach(({ id, ip, port, duration }) => {
+      server.forEach(({ id, ip, port, duration, type }) => {
         const interval = setInterval(async () => {
-          const inspected = await this.inspector(ip as string, port as number)
+          const inspected = await this.inspector(ip as string, port as number, type)
           const onMemo = this.onAir.find(({ id: key }) => key === id) as InMemoryCached
           await this.assistant(id, inspected, onMemo, interval)
         }, duration)
@@ -95,29 +89,46 @@ export default class ScannersController {
     logger.info('Ping API está em andamento!')
   }
 
-  private async inspector (host: string, port: number): Promise<ReusableProps> {
+  private async inspector (host: string, port: number, type: number, timeout = 3000): Promise<ReusableProps> {
     return new Promise((resolve) => {
       const timing = process.hrtime()
-      const socket = new net.Socket().connect({ host, port }).setTimeout(3000)
       const usable = {
         ip: undefined,
         alive: false,
         latency: 'unknown',
         port,
       } as ReusableProps
-      socket.on('connect', () => {
-        const diff = process.hrtime(timing)
-        usable.ip = socket.remoteAddress
-        usable.latency = (diff[1] / 1000000).toFixed(2).concat(' ms')
-        usable.alive = true
-        socket.emit('end')
-      })
-      socket.on('timeout', () => socket.emit('end'))
-      socket.on('error', () => socket.emit('end'))
-      socket.on('end', () => {
-        socket.destroy()
-        resolve(usable)
-      })
+      if ((type === 4) || (type === 5)) {
+        isUp(host)
+          .then((up: boolean) => {
+            if (up) {
+              const diff = process.hrtime(timing)
+              usable.ip = host
+              usable.latency = (diff[1] / 1000000).toFixed(2).concat('ms')
+              usable.alive = true
+              delete usable.port
+              resolve(usable)
+            } else {
+              resolve(usable)
+            }
+          })
+          .catch(() => resolve(usable))
+      } else {
+        const socket = new net.Socket().connect({ host, port }).setTimeout(timeout)
+        socket.on('connect', () => {
+          const diff = process.hrtime(timing)
+          usable.ip = socket.remoteAddress
+          usable.latency = (diff[1] / 1000000).toFixed(2).concat('ms')
+          usable.alive = true
+          socket.emit('end')
+        })
+        socket.on('timeout', () => socket.emit('end'))
+        socket.on('error', () => socket.emit('end'))
+        socket.on('end', () => {
+          socket.destroy()
+          resolve(usable)
+        })
+      }
     })
   }
 
@@ -209,40 +220,8 @@ export default class ScannersController {
     }
   }
 
-  public async memoryData (dataType: FetchProps) {
-    switch (dataType) {
-      case 'status':
-        return JSON.stringify({ status: this.status })
-      case 'air':
-        return JSON.stringify(this.onAir)
-      case 'original':
-        return JSON.stringify(this.servers)
-      case 'usage':
-        const append = await (async () => {
-          try {
-            return {
-              memory: await (async () => {
-                const { totalMemMb, freeMemMb, usedMemMb } = await mem.info()
-                return { total: `${totalMemMb}mb`, free: `${freeMemMb}mb`, usage: `${usedMemMb}mb` }
-              })(),
-              disk: await (async () => {
-                const { totalGb, freeGb, usedPercentage } = await drive.info('/')
-                return { total: `${totalGb}gb`, free: `${freeGb}gb`, usage: `${usedPercentage}%` }
-              })(),
-            }
-          } catch (exception) {
-            return exception
-          }
-        })()
-        return JSON.stringify({
-          cpu: {
-            model: cpu.model(),
-            cores: cpu.count(),
-            usage: `${await cpu.usage()}%`,
-          },
-          ...append,
-          uptime: humanizeDuration(Math.floor(process.uptime())),
-        })
-    }
+  public async memoryData (dataType: MemoryRetriever) {
+    const memory = new MemoriesController(dataType, this.status, this.onAir, this.servers)
+    return await memory.parser()
   }
 }
