@@ -1,7 +1,6 @@
 import { logger } from '@adonisjs/ace'
 
 import http2 from 'http2'
-import isUp from 'is-up'
 import net from 'net'
 
 import ApisController, { RequestProps } from 'App/Controllers/Http/ApisController'
@@ -16,7 +15,6 @@ interface ReusableProps {
   maximum: number;
   duration: number;
   enabled: boolean;
-  type: number;
 }
 
 interface ServicesProps {
@@ -43,8 +41,8 @@ export default class ScannersController {
 
   public setup (dns: string) {
     this.webservice = {
-      request: `${dns}/webrunstudio/wsConsEquMonExt.rule?sys=SDK`,
-      ticket: `${dns}/webrunstudio/wsMonExt.rule?sys=SDK`,
+      request: `${dns}/wsConsEquMonExt.rule?sys=SDK`,
+      ticket: `${dns}/wsMonExt.rule?sys=SDK`,
     }
   }
 
@@ -59,10 +57,9 @@ export default class ScannersController {
         Intervalo: duration,
         Qtd: maximum,
         Ativo: enabled,
-        Tipo: type,
       } of this.servers) {
-        const tester = await this.inspector(host, port, type)
-        response.push({ ...tester, id, maximum, duration, enabled: enabled === 'S', type })
+        const tester = await this.inspector(host, port)
+        response.push({ ...tester, id, maximum, duration, enabled: enabled === 'S' })
       }
       this.onAir = response.map(({ id, maximum }) => ({ id, current: 0, maximum }))
       logger.create('Dados do(s) servidor(es) estão na memória')
@@ -75,9 +72,9 @@ export default class ScannersController {
   private persistent (server: Array<ReusableProps>): void {
     logger.watch('Teste persistente de serviços')
     try {
-      server.forEach(({ id, ip, port, duration, type }) => {
+      server.forEach(({ id, ip, port, duration }) => {
         const interval = setInterval(async () => {
-          const inspected = await this.inspector(ip as string, port as number, type)
+          const inspected = await this.inspector(ip as string, port as number)
           const onMemo = this.onAir.find(({ id: key }) => key === id) as InMemoryCached
           await this.assistant(id, inspected, onMemo, interval)
         }, duration)
@@ -89,7 +86,7 @@ export default class ScannersController {
     logger.info('Ping API está em andamento!')
   }
 
-  private async inspector (host: string, port: number, type: number, timeout = 3000): Promise<ReusableProps> {
+  private async inspector (host: string, port: number, timeout = 3000): Promise<ReusableProps> {
     return new Promise((resolve) => {
       const timing = process.hrtime()
       const usable = {
@@ -98,37 +95,20 @@ export default class ScannersController {
         latency: 'unknown',
         port,
       } as ReusableProps
-      if ((type === 4) || (type === 5)) {
-        isUp(host)
-          .then((up: boolean) => {
-            if (up) {
-              const diff = process.hrtime(timing)
-              usable.ip = host
-              usable.latency = (diff[1] / 1000000).toFixed(2).concat('ms')
-              usable.alive = true
-              delete usable.port
-              resolve(usable)
-            } else {
-              resolve(usable)
-            }
-          })
-          .catch(() => resolve(usable))
-      } else {
-        const socket = new net.Socket().connect({ host, port }).setTimeout(timeout)
-        socket.on('connect', () => {
-          const diff = process.hrtime(timing)
-          usable.ip = socket.remoteAddress
-          usable.latency = (diff[1] / 1000000).toFixed(2).concat('ms')
-          usable.alive = true
-          socket.emit('end')
-        })
-        socket.on('timeout', () => socket.emit('end'))
-        socket.on('error', () => socket.emit('end'))
-        socket.on('end', () => {
-          socket.destroy()
-          resolve(usable)
-        })
-      }
+      const socket = new net.Socket().connect({ host, port }).setTimeout(timeout)
+      socket.on('connect', () => {
+        const diff = process.hrtime(timing)
+        usable.ip = socket.remoteAddress
+        usable.latency = (diff[1] / 1000000).toFixed(2).concat('ms')
+        usable.alive = true
+        socket.emit('end')
+      })
+      socket.on('timeout', () => socket.emit('end'))
+      socket.on('error', () => socket.emit('end'))
+      socket.on('end', () => {
+        socket.destroy()
+        resolve(usable)
+      })
     })
   }
 
